@@ -54,9 +54,9 @@ object Cluster {
 
 }
 
-case class BulkListener(transportClient: TransportClient) extends BulkProcessor.Listener with LazyLogging {
+trait BulkListener extends BulkProcessor.Listener with LazyLogging {
 
-  def client: TransportClient = transportClient
+  def client: TransportClient
 
   override def beforeBulk(executionId: Long, request: BulkRequest): Unit = {
     logger.info(s"B: $executionId | ${new ByteSizeValue(request.estimatedSizeInBytes()).getMb} " +
@@ -80,6 +80,14 @@ case class Cluster(name: String, address: String, port: Int)
 @SerialVersionUID(2000L)
 case class TransferObject(uuid: UUID, index: String, hitType: String, hitId: String, source: String)
 
-object MORE extends Serializable
+@SerialVersionUID(1L)
+object ControlMessages {
 
-object DONE extends Serializable
+  object MORE extends Serializable
+
+  object DONE extends Serializable
+
+  case class SHUTDOWN(total: Int) extends Serializable
+
+}
+

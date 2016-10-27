@@ -6,7 +6,11 @@ import akka.actor.Actor
 import akka.actor.ActorSystem
 import akka.actor.PoisonPill
 import akka.actor.Props
+import com.broilogabriel.ControlMessages.DONE
+import com.broilogabriel.ControlMessages.MORE
 import com.typesafe.scalalogging.LazyLogging
+import org.elasticsearch.action.bulk.BulkRequest
+import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.index.IndexRequest
 
 /**
@@ -25,10 +29,7 @@ class Server extends Actor with LazyLogging {
     case cluster: Cluster =>
       val uuid = UUID.randomUUID
       logger.info(s"Received cluster config: $cluster")
-      context.actorOf(
-        Props(classOf[BulkHandler], BulkListener(Cluster.getCluster(cluster))),
-        name = uuid.toString
-      ).forward(uuid)
+      context.actorOf(Props(classOf[BulkHandler], cluster), name = uuid.toString).forward(uuid)
 
     case other => logger.info(s"Unknown message: $other")
 
@@ -36,13 +37,25 @@ class Server extends Actor with LazyLogging {
 
 }
 
-class BulkHandler(listener: BulkListener) extends Actor with LazyLogging {
+class BulkHandler(cluster: Cluster) extends Actor with BulkListener with LazyLogging {
 
-  val bulkProcessor = Cluster.getBulkProcessor(listener).build()
+  val c = Cluster.getCluster(cluster)
+  val bulkProcessor = Cluster.getBulkProcessor(this).build()
+
+  override def client = c
+
+  override def afterBulk(executionId: Long, request: BulkRequest, response: BulkResponse): Unit = {
+    super.afterBulk(executionId, request, response)
+  }
+
+  override def afterBulk(executionId: Long, request: BulkRequest, failure: Throwable): Unit = {
+    super.afterBulk(executionId, request, failure)
+  }
 
   override def postStop(): Unit = {
+    logger.info(s"Stopping actor ${self.path.name}")
     bulkProcessor.flush()
-    listener.client.close()
+    c.close()
   }
 
   def receive = {
@@ -62,6 +75,7 @@ class BulkHandler(listener: BulkListener) extends Actor with LazyLogging {
     case some: Int =>
       logger.info(s"Client sent $some, sending PoisonPill now")
       sender() ! PoisonPill
+
 
     case other => logger.info(s"Something else here? $other")
   }

@@ -4,6 +4,9 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit._
 
 import akka.actor._
+import com.broilogabriel.ControlMessages.DONE
+import com.broilogabriel.ControlMessages.MORE
+import com.broilogabriel.ControlMessages.SHUTDOWN
 import com.broilogabriel.Reaper.WatchMe
 import com.typesafe.scalalogging.LazyLogging
 import org.elasticsearch.client.transport.TransportClient
@@ -129,7 +132,7 @@ class Client(config: Config) extends Actor with LazyLogging {
     case MORE =>
       val finished = sendWhile(System.currentTimeMillis(), cluster, config.index, scrollId, sender(), uuid)
       if (finished) {
-        sender() ! 1
+        sender() ! SHUTDOWN(1)
       }
     case uuidInc: UUID =>
       uuid = uuidInc
@@ -139,7 +142,7 @@ class Client(config: Config) extends Actor with LazyLogging {
         scrollId = Cluster.getScrollId(cluster, config.index)
         val finished = sendWhile(System.currentTimeMillis(), cluster, config.index, scrollId, sender(), uuid)
         if (finished) {
-          sender() ! 1
+          sender() ! SHUTDOWN(1)
         }
       } else {
         logger.info(s"Invalid index ${config.index}")
