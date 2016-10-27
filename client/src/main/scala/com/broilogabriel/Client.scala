@@ -1,10 +1,12 @@
 package com.broilogabriel
 
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeUnit._
 
 import akka.actor.{Actor, ActorRef, ActorSystem, PoisonPill, Props}
 import akka.pattern.ask
+import akka.util.Timeout
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.search.SearchHit
 import org.joda.time.{DateTime, DateTimeConstants}
@@ -12,6 +14,8 @@ import scopt.OptionParser
 
 import scala.annotation.tailrec
 import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
+
 
 /**
   * Created by broilogabriel on 24/10/16.
@@ -22,7 +26,6 @@ case class Config(index: String = "", indices: Set[String] = Set.empty,
                   remoteAddress: String = "127.0.0.1", remotePort: Int = 9087, remoteName: String = "RemoteServer")
 
 object Client {
-
   val name: String = com.broilogabriel.BuildInfo.name
   val version: String = com.broilogabriel.BuildInfo.version
 
@@ -82,14 +85,16 @@ object Client {
   }
 
   def main(args: Array[String]): Unit = {
-    parser.parse(args, Config()) match {
-      case Some(config) => if (config.indices.nonEmpty) {
-        init(config)
-      } else {
-        println("Missing indices. Check help to send index")
-      }
-      case None => println("Try again with the arguments")
-    }
+    //    parser.parse(args, Config()) match {
+    //      case Some(config) => if (config.indices.nonEmpty) {
+    //        init(config)
+    //      } else {
+    //        println("Missing indices. Check help to send index")
+    //      }
+    //      case None => println("Try again with the arguments")
+    //    }
+
+    init(Config(indices = Set("ASD")))
   }
 
   def init(config: Config): Unit = {
@@ -103,6 +108,8 @@ object Client {
 }
 
 class Client(config: Config) extends Actor {
+
+  implicit val timeout = Timeout(50, TimeUnit.SECONDS)
 
   override def preStart(): Unit = {
     val path = s"akka.tcp://MigrationServer@${config.remoteAddress}:${config.remotePort}/user/${config.remoteName}"
@@ -119,20 +126,20 @@ class Client(config: Config) extends Actor {
 
     case uuid: UUID =>
       println(s"Server is waiting to process $uuid")
-      val cluster = Cluster.getCluster(Cluster(config.sourceCluster, config.source, config.sourcePort))
-      if (Cluster.checkIndex(cluster, config.index)) {
-        val scrollId = Cluster.getScrollId(cluster, config.index)
-        scroll(System.currentTimeMillis(), cluster, config.index, scrollId, sender(), uuid).onComplete(
-          totalSent => {
-            sender() ! totalSent
-            println("Client done should wait for server.")
-          }
-        )
-      } else {
-        println(s"Invalid index ${config.index}")
-        sender() ! s"Invalid index ${config.index}"
-        self ! PoisonPill
-      }
+      //      val cluster = Cluster.getCluster(Cluster(config.sourceCluster, config.source, config.sourcePort))
+      //      if (Cluster.checkIndex(cluster, config.index)) {
+      //        val scrollId = Cluster.getScrollId(cluster, config.index)
+      scroll(System.currentTimeMillis(), null, config.index, null, sender(), uuid).onComplete(
+        totalSent => {
+          sender() ! totalSent
+          println("Client done should wait for server.")
+        }
+      )
+    //      } else {
+    //        println(s"Invalid index ${config.index}")
+    //        sender() ! s"Invalid index ${config.index}"
+    //        self ! PoisonPill
+    //      }
 
   }
 
@@ -142,12 +149,12 @@ class Client(config: Config) extends Actor {
     f"$hours%02d:${minutes - HOURS.toMinutes(hours)}%02d:${MILLISECONDS.toSeconds(millis) - MINUTES.toSeconds(minutes)}%02d"
   }
 
-  def send(actor: ActorRef, uuid: UUID, hits: Array[SearchHit]): Future[Unit] = {
+  def send(actor: ActorRef, uuid: UUID, hits: Array[SHit]): Future[Unit] = {
     if (hits.nonEmpty) {
       val hit = hits.head
       (actor ? TransferObject(uuid, hit.getIndex, hit.getType, hit.getId, hit.getSourceAsString)).flatMap(
         response => {
-          println(s"R: ${response}")
+          println(s"R: $response")
           send(actor, uuid, hits.tail)
         }
       )
@@ -157,12 +164,16 @@ class Client(config: Config) extends Actor {
 
   }
 
-  @tailrec
   private def scroll(startTime: Long, cluster: TransportClient, index: String, scrollId: String, actor: ActorRef,
                      uuid: UUID, total: Int = 0): Future[Int] = {
-    val hits = Cluster.scroller(index, scrollId, cluster)
+    val hits = Array[SHit](
+      SHit("1", "1", "1", "1"),
+      SHit("2", "2", "2", "2"),
+      SHit("23", "23", "23", "23")
+    )
+    //    val hits = Cluster.scroller(index, scrollId, cluster)
     if (hits.nonEmpty) {
-      send(actor, uuid, hits).map(x => {
+      send(actor, uuid, hits).flatMap(x => {
         val sent = hits.length + total
         println(s"Sent $sent in ${formatElapsedTime(System.currentTimeMillis() - startTime)}")
         scroll(startTime, cluster, index, scrollId, actor, uuid, sent)
@@ -173,3 +184,5 @@ class Client(config: Config) extends Actor {
   }
 
 }
+
+case class SHit(getIndex: String, getType: String, getId: String, getSourceAsString: String)

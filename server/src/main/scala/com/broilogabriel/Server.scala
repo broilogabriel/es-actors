@@ -25,8 +25,7 @@ class Server extends Actor {
     case cluster: Cluster =>
       val uuid = UUID.randomUUID
       println(s"Received cluster config: $cluster")
-      val handler = context.actorOf(Props(classOf[BulkHandler], Cluster.getBulkProcessor(Cluster.getCluster(cluster))
-        .build()), name = uuid.toString)
+      val handler = context.actorOf(Props(classOf[BulkHandler], null), name = uuid.toString)
       handler.forward(uuid)
 
     case data: TransferObject => self.forward(data)
@@ -45,9 +44,12 @@ class BulkHandler(bulkProcessor: BulkProcessor) extends Actor {
       sender() ! uuid
 
     case data: TransferObject =>
-      val indexRequest = new IndexRequest(data.index, data.hitType, data.hitId)
-      indexRequest.source(data.source)
-      bulkProcessor.add(indexRequest)
+      println(s"TO: $data")
+      Thread.sleep(40000)
+      sender() ! "YO!"
+    //      val indexRequest = new IndexRequest(data.index, data.hitType, data.hitId)
+    //      indexRequest.source(data.source)
+    //      bulkProcessor.add(indexRequest)
 
     case some: Int =>
       println(s"Client sent $some, sending PoisonPill now")
