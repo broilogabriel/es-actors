@@ -1,6 +1,6 @@
 name := "es-client"
 
-version := "1.3.5"
+version := "1.4.0"
 
 scalaVersion := "2.11.8"
 
@@ -8,12 +8,14 @@ showSuccess := false
 
 logLevel in run := Level.Warn
 
+lazy val common = RootProject(file("./../common"))
+
 lazy val root = (project in file(".")).
   enablePlugins(BuildInfoPlugin).
   settings(
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
     buildInfoPackage := "com.broilogabriel"
-  )
+  ).dependsOn(common)
 
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.11"
 

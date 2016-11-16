@@ -1,16 +1,5 @@
 package com.broilogabriel
 
-import java.util.UUID
-
-import org.elasticsearch.action.search.SearchResponse
-import org.elasticsearch.action.search.SearchType
-import org.elasticsearch.client.transport.TransportClient
-import org.elasticsearch.common.settings.ImmutableSettings
-import org.elasticsearch.common.transport.InetSocketTransportAddress
-import org.elasticsearch.common.unit.TimeValue
-import org.elasticsearch.index.query.QueryBuilders
-import org.elasticsearch.search.SearchHit
-
 
 /**
   * Created by broilogabriel on 24/10/16.
@@ -45,15 +34,3 @@ object Cluster {
   }
 
 }
-
-@SerialVersionUID(1000L)
-case class Cluster(name: String, address: String, port: Int, totalHits: Long = 0)
-
-@SerialVersionUID(2000L)
-case class TransferObject(uuid: UUID, index: String, hitType: String, hitId: String, source: String)
-
-@SerialVersionUID(1L)
-object MORE extends Serializable
-
-@SerialVersionUID(2L)
-object DONE extends Serializable
