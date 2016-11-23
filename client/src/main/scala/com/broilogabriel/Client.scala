@@ -182,7 +182,7 @@ class Client(config: Config) extends Actor with LazyLogging {
           } catch {
             case e@(_: TimeoutException | _: InterruptedException) =>
               logger.warn(s"${sender.path.name} - Exception  awaiting for $data")
-            case e => logger.error(s"Unexpected Exception: ${e.getMessage}")
+            case e: Exception => logger.error(s"Unexpected Exception: ${e.getMessage}")
           }
         })
         val totalSent = total.addAndGet(hits.length)
