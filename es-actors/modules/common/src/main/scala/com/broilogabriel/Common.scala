@@ -11,7 +11,9 @@ object ClusterConfig {
   val flushIntervalSec = 5
 }
 
-case class ClusterConfig(name: String, address: String, port: Int, totalHits: Long = 0)
+case class ClusterNode(address: String, port: Int)
+
+case class ClusterConfig(name: String, nodes: Seq[ClusterNode], totalHits: Long = 0)
 
 //@SerialVersionUID
 case class TransferObject(uuid: UUID, index: String, hitType: String, hitId: String, source: String)

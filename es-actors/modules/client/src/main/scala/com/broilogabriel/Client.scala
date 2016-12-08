@@ -102,7 +102,7 @@ object Client extends LazyLogging {
     opt[String]('t', "target").valueName("<target_address>")
       .action((x, c) => c.copy(targetAddress = x)).text("default value 'localhost'")
     opt[Int]('r', "targetPort").valueName("<target_port>")
-      .action((x, c) => c.copy(targetPort = x)).text("default value 9301")
+      .action((x, c) => c.copy(targetPort = x)).text("default value 9300")
     opt[String]('u', "targetCluster").required().valueName("<target_cluster>")
       .action((x, c) => c.copy(targetCluster = x))
 

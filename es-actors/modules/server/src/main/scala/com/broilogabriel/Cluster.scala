@@ -19,8 +19,11 @@ object Cluster {
 
   def getCluster(cluster: ClusterConfig): TransportClient = {
     val settings = Settings.settingsBuilder().put("cluster.name", cluster.name).build()
-    TransportClient.builder().settings(settings).build()
-      .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(cluster.address), cluster.port))
+    val client = TransportClient.builder().settings(settings).build()
+    cluster.nodes.foreach(
+      node => client.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(node.address), node.port))
+    )
+    client
   }
 
   def getBulkProcessor(listener: BulkListener): Builder = {
