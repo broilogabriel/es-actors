@@ -30,13 +30,19 @@ object Config {
 
 case class Config(index: String = "", indices: Set[String] = Set.empty,
   sourceAddress: String = "localhost", sourcePort: Int = Config.defaultSourcePort, sourceCluster: String = "",
-  targetAddress: String = "localhost", targetPort: Int = Config.defaultTargetPort, targetCluster: String = "",
-  remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort, remoteName: String = "RemoteServer") {
+  remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort, remoteName: String = "RemoteServer",
+  targetNodes: Set[String] = Set.empty, targetCluster: String = "") {
   def source: ClusterConfig =
     ClusterConfig(name = sourceCluster, Seq(ClusterNode(address = sourceAddress, port = sourcePort)))
 
-  def target: ClusterConfig =
-    ClusterConfig(name = targetCluster, Seq(ClusterNode(address = targetAddress, port = targetPort)))
+  def target: ClusterConfig = {
+    val nodes = targetNodes.map {
+      tn =>
+        val node = tn.split(":")
+        ClusterNode(node(0), node(1).toInt)
+    }
+    ClusterConfig(name = targetCluster, nodes = nodes.toSeq)
+  }
 }
 
 object Client extends LazyLogging {
@@ -100,18 +106,23 @@ object Client extends LazyLogging {
     opt[String]('c', "sourceCluster").required().valueName("<source_cluster>")
       .action((x, c) => c.copy(sourceCluster = x))
 
-    opt[String]('t', "target").valueName("<target_address>")
-      .action((x, c) => c.copy(targetAddress = x)).text("default value 'localhost'")
-    opt[Int]('r', "targetPort").valueName("<target_port>")
-      .action((x, c) => c.copy(targetPort = x)).text("default value 9300")
+    //    opt[String]('t', "target").valueName("<target_address>")
+    //      .action((x, c) => c.copy(targetAddress = x)).text("default value 'localhost'")
+    //    opt[Int]('r', "targetPort").valueName("<target_port>")
+    //      .action((x, c) => c.copy(targetPort = x)).text("default value 9300")
     opt[String]('u', "targetCluster").required().valueName("<target_cluster>")
       .action((x, c) => c.copy(targetCluster = x))
+
+    opt[Set[String]]("nodes").valueName("allow to set multiple targetNodes to connect")
+      .validate(v =>
+        if (v.exists(_.contains(":"))) success else failure("The nodes should follow the pattern <host>:<port>"))
+      .action((x, c) => c.copy(targetNodes = x))
 
     opt[String]("remoteAddress").valueName("<remote_address>").action((x, c) => c.copy(remoteAddress = x))
     opt[Int]("remotePort").valueName("<remote_port>").action((x, c) => c.copy(remotePort = x))
     opt[String]("remoteName").valueName("<remote_name>").action((x, c) => c.copy(remoteName = x))
 
-    opt[Map[String, String]]("nightly").valueName("value name to define")
+    opt[Map[String, String]]("nightly").valueName("expect date=<start_date>,weeksBack=<number_of_weeks>")
       .validate(p => {
         if (p.contains("date") && p.contains("weeksBack") &&
           indicesByWeeks(p("date"), p("weeksBack"), validate = true).isDefined) {
