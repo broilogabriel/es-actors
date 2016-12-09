@@ -32,9 +32,11 @@ case class Config(index: String = "", indices: Set[String] = Set.empty,
   sourceAddress: String = "localhost", sourcePort: Int = Config.defaultSourcePort, sourceCluster: String = "",
   targetAddress: String = "localhost", targetPort: Int = Config.defaultTargetPort, targetCluster: String = "",
   remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort, remoteName: String = "RemoteServer") {
-  def source: ClusterConfig = ClusterConfig(name = sourceCluster, address = sourceAddress, port = sourcePort)
+  def source: ClusterConfig =
+    ClusterConfig(name = sourceCluster, Seq(ClusterNode(address = sourceAddress, port = sourcePort)))
 
-  def target: ClusterConfig = ClusterConfig(name = targetCluster, address = targetAddress, port = targetPort)
+  def target: ClusterConfig =
+    ClusterConfig(name = targetCluster, Seq(ClusterNode(address = targetAddress, port = targetPort)))
 }
 
 object Client extends LazyLogging {
@@ -52,23 +54,22 @@ object Client extends LazyLogging {
       val startDate = DateTime.parse(date).minusWeeks(weeks).withDayOfWeek(DateTimeConstants.SUNDAY)
       indicesByRange(startDate.toString, date, validate = validate)
     } catch {
-      case e: IllegalArgumentException => None
+      case _: IllegalArgumentException => None
     }
   }
 
   def indicesByRange(startDate: String, endDate: String, validate: Boolean = false): Option[Set[String]] = {
     try {
       val sd = DateTime.parse(startDate).withDayOfWeek(DateTimeConstants.SUNDAY)
-      logger.info(s"Start date: $sd")
       val ed = DateTime.parse(endDate).withDayOfWeek(DateTimeConstants.SUNDAY)
-      logger.info(s"End date: $ed")
+      logger.info(s"Start date: $sd | End date: $ed")
       if (sd.getMillis <= ed.getMillis) {
         Some(if (!validate) getIndices(sd, ed) else Set.empty)
       } else {
         None
       }
     } catch {
-      case e: IllegalArgumentException => None
+      case _: IllegalArgumentException => None
     }
   }
 
@@ -188,8 +189,7 @@ class Client(config: Config) extends Actor with LazyLogging {
             val serverResponse = Await.result(sender ? data, timeout.duration)
             if (data.hitId != serverResponse) {
               logger.info(s"${sender.path.name} - Expected response: ${
-                data
-                  .hitId
+                data.hitId
               }, but server responded with: $serverResponse")
             }
           } catch {
@@ -200,8 +200,7 @@ class Client(config: Config) extends Actor with LazyLogging {
         })
         val totalSent = total.addAndGet(hits.length)
         logger.info(s"${sender.path.name} - ${config.index} - ${
-          (totalSent * 100) / scroll.getHits
-            .getTotalHits
+          (totalSent * 100) / scroll.getHits.getTotalHits
         }% | Sent $totalSent of ${scroll.getHits.getTotalHits}")
       } else {
         logger.info(s"${sender.path.name} - ${config.index} - Sending DONE")
