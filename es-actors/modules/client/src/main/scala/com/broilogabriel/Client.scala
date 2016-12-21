@@ -29,9 +29,9 @@ object Config {
 }
 
 case class Config(index: String = "", indices: Set[String] = Set.empty,
-  sourceAddress: String = "localhost", sourcePort: Int = Config.defaultSourcePort, sourceCluster: String = "",
-  remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort, remoteName: String = "RemoteServer",
-  targetNodes: Set[String] = Set.empty, targetCluster: String = "") {
+    sourceAddress: String = "localhost", sourcePort: Int = Config.defaultSourcePort, sourceCluster: String = "",
+    remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort, remoteName: String = "RemoteServer",
+    targetNodes: Set[String] = Set.empty, targetCluster: String = "") {
   def source: ClusterConfig =
     ClusterConfig(name = sourceCluster, Seq(ClusterNode(address = sourceAddress, port = sourcePort)))
 
@@ -96,8 +96,8 @@ object Client extends LazyLogging {
     opt[(String, String)]('d', "dateRange").validate(
       d => if (indicesByRange(d._1, d._2, validate = true).isDefined) success else failure("Invalid dates")
     ).action({
-      case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
-    }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
+        case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
+      }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
 
     opt[String]('s', "source").valueName("<source_address>")
       .action((x, c) => c.copy(sourceAddress = x)).text("default value 'localhost'")

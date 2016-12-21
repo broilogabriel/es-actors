@@ -36,7 +36,7 @@ object Cluster {
 }
 
 case class BulkListener(
-  transportClient: TransportClient, handler: ActorRef
+    transportClient: TransportClient, handler: ActorRef
 ) extends BulkProcessor.Listener with LazyLogging {
 
   def client: TransportClient = transportClient
