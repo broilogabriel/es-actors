@@ -29,12 +29,15 @@ object Config {
 }
 
 case class Config(index: String = "", indices: Set[String] = Set.empty,
-  sourceAddress: String = "localhost", sourcePort: Int = Config.defaultSourcePort, sourceCluster: String = "",
-  targetAddress: String = "localhost", targetPort: Int = Config.defaultTargetPort, targetCluster: String = "",
-  remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort, remoteName: String = "RemoteServer") {
-  def source: ClusterConfig = ClusterConfig(name = sourceCluster, address = sourceAddress, port = sourcePort)
+    sourceAddresses: Seq[String] = Seq("localhost"),
+    sourcePort: Int = Config.defaultSourcePort, sourceCluster: String = "",
+    targetAddresses: Seq[String] = Seq("localhost"),
+    targetPort: Int = Config.defaultTargetPort, targetCluster: String = "",
+    remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
+    remoteName: String = "RemoteServer") {
+  def source: ClusterConfig = ClusterConfig(name = sourceCluster, addresses = sourceAddresses, port = sourcePort)
 
-  def target: ClusterConfig = ClusterConfig(name = targetCluster, address = targetAddress, port = targetPort)
+  def target: ClusterConfig = ClusterConfig(name = targetCluster, addresses = targetAddresses, port = targetPort)
 }
 
 object Client extends LazyLogging {
@@ -89,18 +92,18 @@ object Client extends LazyLogging {
     opt[(String, String)]('d', "dateRange").validate(
       d => if (indicesByRange(d._1, d._2, validate = true).isDefined) success else failure("Invalid dates")
     ).action({
-      case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
-    }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
+        case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
+      }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
 
-    opt[String]('s', "source").valueName("<source_address>")
-      .action((x, c) => c.copy(sourceAddress = x)).text("default value 'localhost'")
+    opt[Seq[String]]('s', "sources").valueName("<source_address1>,<source_address2>")
+      .action((x, c) => c.copy(sourceAddresses = x)).text("default value 'localhost'")
     opt[Int]('p', "sourcePort").valueName("<source_port>")
       .action((x, c) => c.copy(sourcePort = x)).text("default value 9300")
     opt[String]('c', "sourceCluster").required().valueName("<source_cluster>")
       .action((x, c) => c.copy(sourceCluster = x))
 
-    opt[String]('t', "target").valueName("<target_address>")
-      .action((x, c) => c.copy(targetAddress = x)).text("default value 'localhost'")
+    opt[Seq[String]]('t', "targets").valueName("<target_address>1,<target_address2>...")
+      .action((x, c) => c.copy(targetAddresses = x)).text("default value 'localhost'")
     opt[Int]('r', "targetPort").valueName("<target_port>")
       .action((x, c) => c.copy(targetPort = x)).text("default value 9301")
     opt[String]('u', "targetCluster").required().valueName("<target_cluster>")

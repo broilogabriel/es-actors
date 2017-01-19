@@ -19,8 +19,12 @@ object Cluster {
 
   def getCluster(cluster: ClusterConfig): TransportClient = {
     val settings = Settings.settingsBuilder().put("cluster.name", cluster.name).build()
-    TransportClient.builder().settings(settings).build()
-      .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(cluster.address), cluster.port))
+    val transportClient = TransportClient.builder().settings(settings).build()
+    cluster.addresses foreach {
+      (address: String) =>
+        transportClient.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(address), cluster.port))
+    }
+    transportClient
   }
 
   def getBulkProcessor(listener: BulkListener): Builder = {
@@ -33,7 +37,7 @@ object Cluster {
 }
 
 case class BulkListener(
-  transportClient: TransportClient, handler: ActorRef
+    transportClient: TransportClient, handler: ActorRef
 ) extends BulkProcessor.Listener with LazyLogging {
 
   def client: TransportClient = transportClient
