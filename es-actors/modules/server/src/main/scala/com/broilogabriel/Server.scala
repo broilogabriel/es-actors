@@ -20,7 +20,7 @@ object Server extends App with LazyLogging {
 
 class Server extends Actor with LazyLogging {
 
-  def receive(): Object = {
+  override def receive: Actor.Receive = {
 
     case cluster: ClusterConfig =>
       val uuid = UUID.randomUUID

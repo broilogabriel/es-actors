@@ -47,3 +47,6 @@ lazy val server = project.from("server")
     buildInfoPackage := Settings.defaultOrg,
     libraryDependencies += "org.elasticsearch" % "elasticsearch" % "2.4.1"
   )
+
+
+
