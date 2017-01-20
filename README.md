@@ -2,7 +2,7 @@
 
 ## es-server
 ```
-sbt "run-main com.broilogabriel.Server"
+sbt "; project server; run-main com.broilogabriel.Server"
 ```
 
 ## es-client
@@ -14,13 +14,13 @@ Usage: es-client [options]
                            
   -d, --dateRange:<start_date>=<end_date>
                            Start date value should be lower than end date.
-  -s, --source <source_address>
+  -s, --sources <source_address1>,<source_address2>
                            default value 'localhost'
   -p, --sourcePort <source_port>
                            default value 9300
   -c, --sourceCluster <source_cluster>
                            
-  -t, --target <target_address>
+  -t, --targets <target_address1>,<target_address2>
                            default value 'localhost'
   -r, --targetPort <target_port>
                            default value 9301
@@ -38,14 +38,14 @@ Usage: es-client [options]
 Example:
 ```
 
-sbt "run-main com.broilogabriel.Client --help"
+sbt "; project client; run-main com.broilogabriel.Client --help"
 
-sbt "run-main com.broilogabriel.Client \
+sbt "; project client; run-main com.broilogabriel.Client \
         --indices=index_name \
         --sourceCluster=cluster_name \
         --targetCluster=cluster_name"
 
-sbt "run-main com.broilogabriel.Client \
+sbt "; project client; run-main com.broilogabriel.Client \
         -d:2016-10-1=2016-10-25 \
         -c=cluster_name \
         -u=cluster_name"
