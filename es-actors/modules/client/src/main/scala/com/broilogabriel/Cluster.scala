@@ -13,7 +13,12 @@ object Cluster {
 
   def getCluster(cluster: ClusterConfig): TransportClient = {
     val settings = ImmutableSettings.settingsBuilder().put("cluster.name", cluster.name).build()
-    new TransportClient(settings).addTransportAddress(new InetSocketTransportAddress(cluster.address, cluster.port))
+    val transportClient = new TransportClient(settings)
+    cluster.addresses foreach {
+      (address: String) =>
+        transportClient.addTransportAddress(new InetSocketTransportAddress(address, cluster.port))
+    }
+    transportClient
   }
 
   def checkIndex(cluster: TransportClient, index: String): Boolean = {
