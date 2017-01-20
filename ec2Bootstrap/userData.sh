@@ -19,9 +19,19 @@ apt-get update && apt-get upgrade -y
 
 # Install required packages
 apt_get_install git
+
+# Instal java8 
+echo debconf shared/accepted-oracle-license-v1-1 select true | debconf-set-selections
+debconf shared/accepted-oracle-license-v1-1 seen true | sudo debconf-set-selections
 add-apt-repository ppa:webupd8team/java
 apt-get update
 apt_get_install oracle-java8-installer
+
+# Instal SBT
+echo "deb https://dl.bintray.com/sbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list
+apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823
+apt-get update
+apt_get_install sbt
 
 mkdir /opt/elasticsearch-migration
 cd /opt/elasticsearch-migration
