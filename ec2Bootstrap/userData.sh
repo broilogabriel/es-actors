@@ -9,7 +9,7 @@ apt_get_install()
         install $@
 }
 
-ES_ACTORS_VERSION=1.3.12
+ES_ACTORS_VERSION=1.3.13
 
 # Mark execution start
 echo "STARTING" > /root/user_data_run
@@ -44,7 +44,7 @@ SERVER_CMD="sbt -J-Xmx30G -J-Xms30G \"; project server; run-main com.broilogabri
 eval $SERVER_CMD </dev/null &>/dev/null &
 sleep 100
 chmod 755 /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION/ec2Bootstrap/nightly.sh
-/opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION/ec2Bootstrap/nightly.sh /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION/es-actors NewsWhipCluster NewsWhipStagingCluster 10.0.1.10,10.0.3.10,10.0.7.10,10.0.9.10 10.0.1.110,10.0.3.110,10.0.7.110,10.0.9.110 9300 8 >/dev/null 2>&1 &
+/opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION/ec2Bootstrap/nightly.sh /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION/es-actors NewsWhipCluster NewsWhipStagingCluster 10.0.1.10 10.0.1.110,10.0.3.110,10.0.7.110,10.0.9.110,10.0.1.111 9300 8 >/dev/null 2>&1 &
 
 # Mark execution end
 echo "DONE" > /root/user_data_run
