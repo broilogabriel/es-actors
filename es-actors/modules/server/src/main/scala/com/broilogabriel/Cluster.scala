@@ -18,8 +18,7 @@ import org.elasticsearch.common.unit.TimeValue
 object Cluster extends LazyLogging{
 
   def getCluster(cluster: ClusterConfig): TransportClient = {
-    val settings = Settings.settingsBuilder().put("cluster.name", cluster.name)
-      .put("client.transport.sniff", true).build()
+    val settings = Settings.settingsBuilder().put("cluster.name", cluster.name).build()
     val transportClient = TransportClient.builder().settings(settings).build()
     cluster.addresses foreach {
       (address: String) =>
