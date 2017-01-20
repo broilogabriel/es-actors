@@ -15,7 +15,7 @@ import org.elasticsearch.common.unit.ByteSizeUnit
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 
-object Cluster {
+object Cluster extends LazyLogging{
 
   def getCluster(cluster: ClusterConfig): TransportClient = {
     val settings = Settings.settingsBuilder().put("cluster.name", cluster.name)
@@ -23,7 +23,9 @@ object Cluster {
     val transportClient = TransportClient.builder().settings(settings).build()
     cluster.addresses foreach {
       (address: String) =>
-        transportClient.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(address), cluster.port))
+        logger.info(s"Server connecting to $address")
+        transportClient.addTransportAddress(new InetSocketTransportAddress
+        (InetAddress.getByName(address), cluster.port))
     }
     transportClient
   }
@@ -38,7 +40,7 @@ object Cluster {
 }
 
 case class BulkListener(
-    transportClient: TransportClient, handler: ActorRef
+  transportClient: TransportClient, handler: ActorRef
 ) extends BulkProcessor.Listener with LazyLogging {
 
   def client: TransportClient = transportClient

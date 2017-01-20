@@ -102,7 +102,7 @@ object Client extends LazyLogging {
     opt[String]('c', "sourceCluster").required().valueName("<source_cluster>")
       .action((x, c) => c.copy(sourceCluster = x))
 
-    opt[Seq[String]]('t', "targets").valueName("<target_address>1,<target_address2>...")
+    opt[Seq[String]]('t', "targets").valueName("<target_address1>,<target_address2>...")
       .action((x, c) => c.copy(targetAddresses = x)).text("default value 'localhost'")
     opt[Int]('r', "targetPort").valueName("<target_port>")
       .action((x, c) => c.copy(targetPort = x)).text("default value 9301")
@@ -137,6 +137,7 @@ object Client extends LazyLogging {
   }
 
   def init(config: Config): Unit = {
+    logger.info(s"$config")
     val actorSystem = ActorSystem.create("MigrationClient")
     val reaper = actorSystem.actorOf(Props(classOf[ProductionReaper]))
     logger.info(s"Creating actors for indices ${config.indices}")

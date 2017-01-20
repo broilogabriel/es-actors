@@ -1,5 +1,6 @@
 package com.broilogabriel
 
+import com.typesafe.scalalogging.LazyLogging
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.search.SearchType
 import org.elasticsearch.client.transport.TransportClient
@@ -9,13 +10,14 @@ import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.SearchHit
 
-object Cluster {
+object Cluster extends LazyLogging {
 
   def getCluster(cluster: ClusterConfig): TransportClient = {
     val settings = ImmutableSettings.settingsBuilder().put("cluster.name", cluster.name).build()
     val transportClient = new TransportClient(settings)
     cluster.addresses foreach {
       (address: String) =>
+        logger.info(s"Client connecting to $address")
         transportClient.addTransportAddress(new InetSocketTransportAddress(address, cluster.port))
     }
     transportClient
