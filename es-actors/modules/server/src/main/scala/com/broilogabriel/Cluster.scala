@@ -18,11 +18,13 @@ import org.elasticsearch.common.unit.TimeValue
 object Cluster {
 
   def getCluster(cluster: ClusterConfig): TransportClient = {
-    val settings = Settings.settingsBuilder().put("cluster.name", cluster.name).build()
+    val settings = Settings.settingsBuilder().put("cluster.name", cluster.name)
+      .put("client.transport.sniff", true).build()
     val transportClient = TransportClient.builder().settings(settings).build()
     cluster.addresses foreach {
       (address: String) =>
-        transportClient.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(address), cluster.port))
+        transportClient.addTransportAddress(new InetSocketTransportAddress
+        (InetAddress.getByName(address), cluster.port))
     }
     transportClient
   }
@@ -37,7 +39,7 @@ object Cluster {
 }
 
 case class BulkListener(
-    transportClient: TransportClient, handler: ActorRef
+  transportClient: TransportClient, handler: ActorRef
 ) extends BulkProcessor.Listener with LazyLogging {
 
   def client: TransportClient = transportClient
