@@ -9,7 +9,7 @@ apt_get_install()
         install $@
 }
 
-ES_ACTORS_VERSION=1.3.16
+ES_ACTORS_VERSION=1.3.17
 
 # Mark execution start
 echo "STARTING" > /root/user_data_run
@@ -40,7 +40,7 @@ cd /opt/elasticsearch-migration
 wget https://github.com/NewsWhip/es-actors/archive/v$ES_ACTORS_VERSION.tar.gz
 tar -xvf v$ES_ACTORS_VERSION.tar.gz
 cd es-actors-$ES_ACTORS_VERSION/es-actors
-SERVER_CMD="sbt -J-Xmx30G -J-Xms30G \"; project server; run-main com.broilogabriel.Server\""
+SERVER_CMD="sbt -J-Xmx10G -J-Xms10G \"; project server; run-main com.broilogabriel.Server\""
 eval $SERVER_CMD </dev/null &>/dev/null &
 sleep 100
 chmod 755 /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION/ec2Bootstrap/nightly.sh
