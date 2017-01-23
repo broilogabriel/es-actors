@@ -15,10 +15,11 @@ import org.elasticsearch.common.unit.ByteSizeUnit
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 
-object Cluster extends LazyLogging{
+object Cluster extends LazyLogging {
 
   def getCluster(cluster: ClusterConfig): TransportClient = {
-    val settings = Settings.settingsBuilder().put("cluster.name", cluster.name).build()
+    val settings = Settings.settingsBuilder().put("cluster.name", cluster.name)
+      .put("client.transport.sniff", true).put("client.transport.ping_timeout", "20s").build()
     val transportClient = TransportClient.builder().settings(settings).build()
     cluster.addresses foreach {
       (address: String) =>

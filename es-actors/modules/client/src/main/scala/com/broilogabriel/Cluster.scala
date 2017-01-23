@@ -13,7 +13,8 @@ import org.elasticsearch.search.SearchHit
 object Cluster extends LazyLogging {
 
   def getCluster(cluster: ClusterConfig): TransportClient = {
-    val settings = ImmutableSettings.settingsBuilder().put("cluster.name", cluster.name).build()
+    val settings = ImmutableSettings.settingsBuilder().put("cluster.name", cluster.name)
+      .put("client.transport.sniff", true).put("client.transport.ping_timeout", "20s").build()
     val transportClient = new TransportClient(settings)
     cluster.addresses foreach {
       (address: String) =>
