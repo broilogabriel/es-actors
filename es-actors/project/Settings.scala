@@ -28,7 +28,7 @@ object Settings extends Dependencies {
 
   private val commonSettings = Seq(
     organization := defaultOrg,
-    version := "1.3.17",
+    version := "1.3.18",
     scalaVersion := scalaVersionUsed
   )
 
