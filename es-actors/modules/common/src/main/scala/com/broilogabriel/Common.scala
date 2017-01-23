@@ -4,7 +4,7 @@ import java.util.UUID
 
 //@SerialVersionUID
 object ClusterConfig {
-  val scrollSize = 100000
+  val scrollSize = 10000
   val minutesAlive = 10
   val bulkActions = 25000
   val bulkSizeMb = 25
