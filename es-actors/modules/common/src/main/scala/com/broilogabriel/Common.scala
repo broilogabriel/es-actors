@@ -5,10 +5,10 @@ import java.util.UUID
 //@SerialVersionUID
 object ClusterConfig {
   //Beware of setting this variable any higher, causes memory issues in source cluster
-  val scrollSize = 10000
+  val scrollSize = 5000
   val minutesAlive = 10
-  val bulkActions = 25000
-  val bulkSizeMb = 25
+  val bulkActions = 10000
+  val bulkSizeMb = 10
   val flushIntervalSec = 5
 }
 
