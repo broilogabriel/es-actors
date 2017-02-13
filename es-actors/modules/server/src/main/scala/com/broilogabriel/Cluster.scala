@@ -24,8 +24,7 @@ object Cluster extends LazyLogging {
     cluster.addresses foreach {
       (address: String) =>
         logger.info(s"Server connecting to $address")
-        transportClient.addTransportAddress(new InetSocketTransportAddress
-        (InetAddress.getByName(address), cluster.port))
+        transportClient.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(address), cluster.port))
     }
     transportClient
   }
@@ -40,7 +39,7 @@ object Cluster extends LazyLogging {
 }
 
 case class BulkListener(
-  transportClient: TransportClient, handler: ActorRef
+    transportClient: TransportClient, handler: ActorRef
 ) extends BulkProcessor.Listener with LazyLogging {
 
   def client: TransportClient = transportClient
