@@ -164,6 +164,7 @@ class Client(config: Config) extends Actor with LazyLogging {
   override def preStart(): Unit = {
     cluster = Cluster.getCluster(config.source)
     scroll = Cluster.getScrollId(cluster, config.index)
+    logger.info(s"Getting scroll for index ${config.index} took ${scroll.getTookInMillis}ms")
     if (Cluster.checkIndex(cluster, config.index)) {
       val path = s"akka.tcp://MigrationServer@${config.remoteAddress}:${config.remotePort}/user/${config.remoteName}"
       val remote = context.actorSelection(path)

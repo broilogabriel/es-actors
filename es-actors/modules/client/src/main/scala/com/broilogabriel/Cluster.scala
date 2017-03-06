@@ -23,7 +23,9 @@ object Cluster extends LazyLogging {
       (address: String) =>
         logger.info(s"Client connecting to $address")
         transportClient.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(address), cluster.port))
+        logger.info(s"Here client $transportClient")
     }
+
     transportClient
   }
 
@@ -46,6 +48,7 @@ object Cluster extends LazyLogging {
       .setScroll(TimeValue.timeValueMinutes(ClusterConfig.minutesAlive))
       .execute()
       .actionGet()
+    logger.info(s"Getting scroll for index ${index} took ${partial.getTookInMillis}ms")
     partial.getHits.hits()
   }
 
