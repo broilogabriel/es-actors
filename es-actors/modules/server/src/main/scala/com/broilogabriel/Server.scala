@@ -44,7 +44,7 @@ class BulkHandler(cluster: ClusterConfig) extends Actor with LazyLogging {
   val finishedActions: AtomicLong = new AtomicLong
 
   override def postStop(): Unit = {
-    logger.info(s"${self.path.name} - Stopping BulkHandler")
+    logger.debug(s"${self.path.name} - Stopping BulkHandler")
     bulkProcessor.flush()
     bListener.client.close()
   }
