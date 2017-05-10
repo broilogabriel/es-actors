@@ -4,18 +4,15 @@ import java.util.UUID
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicLong
 
-import akka.actor.Actor
-import akka.actor.ActorSystem
-import akka.actor.PoisonPill
-import akka.actor.Props
+import akka.actor.{ Actor, ActorPath, ActorSystem, PoisonPill, Props }
 import akka.pattern.ask
 import akka.util.Timeout
 import com.broilogabriel.Reaper.WatchMe
 import com.typesafe.scalalogging.LazyLogging
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.transport.TransportClient
-import org.joda.time.DateTime
-import org.joda.time.DateTimeConstants
+import org.elasticsearch.search.SearchHit
+import org.joda.time.{ DateTime, DateTimeConstants }
 import scopt.OptionParser
 
 import scala.annotation.tailrec
@@ -142,8 +139,9 @@ object Client extends LazyLogging {
     val reaper = actorSystem.actorOf(Props(classOf[ProductionReaper]))
     logger.info(s"Creating actors for indices ${config.indices}")
     config.indices.foreach(index => {
+      val actorPath = ActorPath.fromString(s"akka.tcp://MigrationServer@${config.remoteAddress}:${config.remotePort}/user/${config.remoteName}")
       val actorRef = actorSystem.actorOf(
-        Props(classOf[Client], config.copy(index = index, indices = Set.empty)),
+        Props(classOf[Client], config.copy(index = index, indices = Set.empty), actorPath),
         s"RemoteClient-$index"
       )
       reaper ! WatchMe(actorRef)
@@ -152,7 +150,7 @@ object Client extends LazyLogging {
 
 }
 
-class Client(config: Config) extends Actor with LazyLogging {
+class Client(config: Config, path: ActorPath) extends Actor with LazyLogging {
 
   var scroll: SearchResponse = _
   var cluster: TransportClient = _
@@ -164,9 +162,8 @@ class Client(config: Config) extends Actor with LazyLogging {
   override def preStart(): Unit = {
     cluster = Cluster.getCluster(config.source)
     scroll = Cluster.getScrollId(cluster, config.index)
-    logger.debug(s"Getting scroll for index ${config.index} took ${scroll.getTookInMillis}ms")
+    logger.info(s"Getting scroll for index ${config.index} took ${scroll.getTookInMillis}ms")
     if (Cluster.checkIndex(cluster, config.index)) {
-      val path = s"akka.tcp://MigrationServer@${config.remoteAddress}:${config.remotePort}/user/${config.remoteName}"
       val remote = context.actorSelection(path)
       // TODO: add handshake before start sending data, the server might not be alive and the application is not killed
       remote ! config.target.copy(totalHits = scroll.getHits.getTotalHits)
@@ -184,34 +181,9 @@ class Client(config: Config) extends Actor with LazyLogging {
 
   override def receive: Actor.Receive = {
     case MORE =>
-      logger.debug(s"${sender.path.name} - requesting more")
+      logger.info(s"${sender.path.name} - requesting more")
       val hits = Cluster.scroller(config.index, scroll.getScrollId, cluster)
-      if (hits.nonEmpty) {
-        hits.foreach(hit => {
-          val data = TransferObject(uuid, config.index, hit.getType, hit.getId, hit.getSourceAsString)
-          try {
-            val serverResponse = Await.result(sender ? data, timeout.duration)
-            if (data.hitId != serverResponse) {
-              logger.info(s"${sender.path.name} - Expected response: ${
-                data
-                  .hitId
-              }, but server responded with: $serverResponse")
-            }
-          } catch {
-            case _@(_: TimeoutException | _: InterruptedException) =>
-              logger.warn(s"${sender.path.name} - Exception  awaiting for $data")
-            case e: Exception => logger.error(s"Unexpected Exception: ${e.getMessage}")
-          }
-        })
-        val totalSent = total.addAndGet(hits.length)
-        logger.debug(s"${sender.path.name} - ${config.index} - ${
-          (totalSent * 100) / scroll.getHits
-            .getTotalHits
-        }% | Sent $totalSent of ${scroll.getHits.getTotalHits}")
-      } else {
-        logger.info(s"${sender.path.name} - ${config.index} - Sending DONE")
-        sender ! DONE
-      }
+      sendHits(hits)
 
     case uuidInc: UUID =>
       uuid = uuidInc
@@ -219,10 +191,39 @@ class Client(config: Config) extends Actor with LazyLogging {
       logger.debug(
         s"${sender.path.name} - ${config.index} - Scroll $scrollId - ${scroll.getHits.getTotalHits}"
       )
-      self.forward(MORE)
+      val hits = scroll.getHits.getHits
+      sendHits(hits)
 
     case other =>
       logger.info(s"${sender.path.name} - ${config.index} - Unknown message: $other")
   }
 
+  def sendHits(hits: Array[SearchHit]): Unit = {
+    if (hits.nonEmpty) {
+      hits.foreach(hit => {
+        val data = TransferObject(uuid, config.index, hit.getType, hit.getId, hit.getSourceAsString)
+        try {
+          val serverResponse = Await.result(sender ? data, timeout.duration)
+          if (data.hitId != serverResponse) {
+            logger.info(s"${sender.path.name} - Expected response: ${
+              data
+                .hitId
+            }, but server responded with: $serverResponse")
+          }
+        } catch {
+          case _@(_: TimeoutException | _: InterruptedException) =>
+            logger.warn(s"${sender.path.name} - Exception  awaiting for $data")
+          case e: Exception => logger.error(s"Unexpected Exception: ${e.getMessage}")
+        }
+      })
+      val totalSent = total.addAndGet(hits.length)
+      logger.info(s"${sender.path.name} - ${config.index} - ${
+        (totalSent * 100) / scroll.getHits
+          .getTotalHits
+      }% | Sent $totalSent of ${scroll.getHits.getTotalHits}")
+    } else {
+      logger.info(s"${sender.path.name} - ${config.index} - Sending DONE")
+      sender ! DONE
+    }
+  }
 }
