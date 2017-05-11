@@ -44,7 +44,7 @@ cd /opt/elasticsearch-migration
 wget https://github.com/NewsWhip/es-actors/archive/v$ES_ACTORS_VERSION.tar.gz
 tar -xvf v$ES_ACTORS_VERSION.tar.gz
 cd es-actors-$ES_ACTORS_VERSION/es-actors
-SERVER_CMD="sbt -J-Xmx25G -J-Xms25G "project server" run"
+SERVER_CMD="sbt -J-Xmx25G -J-Xms25G \"project server\" run"
 eval $SERVER_CMD </dev/null &>/dev/null &
 chmod 755 /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION/ec2Bootstrap/nightly.sh
 # next setup Spike -> Kibana
