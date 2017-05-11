@@ -1,5 +1,4 @@
 import Settings._
-import org.scoverage.coveralls.Imports.CoverallsKeys._
 import sbt._
 
 lazy val root = project.root
