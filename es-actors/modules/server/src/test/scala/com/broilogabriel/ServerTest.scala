@@ -10,7 +10,7 @@ import org.scalatest.{ BeforeAndAfter, BeforeAndAfterAll, WordSpecLike }
 import scala.concurrent.duration._
 
 class ServerTest extends TestKit(ActorSystem("MySpec")) with LazyLogging with ImplicitSender
-  with WordSpecLike with InMemoryES with BeforeAndAfterAll with BeforeAndAfter {
+    with WordSpecLike with InMemoryES with BeforeAndAfterAll with BeforeAndAfter {
 
   override def afterAll(): Unit = {
     node.close()

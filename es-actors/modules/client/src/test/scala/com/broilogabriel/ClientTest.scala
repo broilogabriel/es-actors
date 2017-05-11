@@ -28,7 +28,6 @@ class ClientTest extends TestKit(ActorSystem("MySpec")) with LazyLogging with Im
           logger.info(msg.toString)
           msg match {
             case cc: ClusterConfig => sender ! UUID.randomUUID()
-            case DONE => logger.info("Finishing up")
             case other: Any => logger.info(s"Received unexpected message $other")
           }
           TestActor.KeepRunning
@@ -37,7 +36,6 @@ class ClientTest extends TestKit(ActorSystem("MySpec")) with LazyLogging with Im
       val config = Config(index = "index-1", sourceCluster = "elasticsearch_embedded")
       val actorRef = TestActorRef(new Client(config, testActor.path))
       expectMsgClass(classOf[ClusterConfig])
-      expectMsg(DONE)
     }
 
     "send cluster config to remote and send some data" in {
@@ -48,7 +46,6 @@ class ClientTest extends TestKit(ActorSystem("MySpec")) with LazyLogging with Im
           msg match {
             case cc: ClusterConfig => sender ! UUID.randomUUID()
             case to: TransferObject => sender ! to.hitId
-            case DONE => logger.info("Finishing up")
             case other: Any => logger.info(s"Received unexpected message $other")
           }
           TestActor.KeepRunning
@@ -62,8 +59,6 @@ class ClientTest extends TestKit(ActorSystem("MySpec")) with LazyLogging with Im
       }
       assert(messages.nonEmpty)
       assert(messages.size == numItems)
-      actorRef ! MORE
-      expectMsg(DONE)
     }
 
     "send cluster config to remote and send some data with scrolling - remote init shutdown" in {
@@ -74,7 +69,6 @@ class ClientTest extends TestKit(ActorSystem("MySpec")) with LazyLogging with Im
           msg match {
             case cc: ClusterConfig => sender ! UUID.randomUUID()
             case to: TransferObject => sender ! to.hitId
-            case DONE => logger.info("Finishing up")
             case other: Any => logger.info(s"Received unexpected message $other")
           }
           TestActor.KeepRunning
@@ -109,7 +103,6 @@ class ClientTest extends TestKit(ActorSystem("MySpec")) with LazyLogging with Im
           msg match {
             case cc: ClusterConfig => sender ! UUID.randomUUID()
             case to: TransferObject => sender ! to.hitId
-            case DONE => logger.info("Finishing up")
             case other: Any => logger.info(s"Received unexpected message $other")
           }
           TestActor.KeepRunning
@@ -132,9 +125,6 @@ class ClientTest extends TestKit(ActorSystem("MySpec")) with LazyLogging with Im
       }
       assert(secondBatch.nonEmpty)
       assert(secondBatch.size == (numItems - ClusterConfig.scrollSize))
-      actorRef ! MORE
-
-      expectMsg(DONE)
     }
   }
 }

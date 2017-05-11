@@ -19,6 +19,3 @@ case class TransferObject(uuid: UUID, index: String, hitType: String, hitId: Str
 
 //@SerialVersionUID(1L)
 object MORE extends Serializable
-
-//@SerialVersionUID(2L)
-object DONE extends Serializable
