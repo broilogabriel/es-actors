@@ -49,5 +49,6 @@ lazy val server = project.from("server")
   )
 
 concurrentRestrictions in Global += Tags.limit(Tags.Test, 1)
+parallelExecution in Test := false
 
 
