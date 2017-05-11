@@ -4,18 +4,15 @@ import java.util.UUID
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicLong
 
-import akka.actor.Actor
-import akka.actor.ActorSystem
-import akka.actor.PoisonPill
-import akka.actor.Props
+import akka.actor.{ Actor, ActorPath, ActorSystem, PoisonPill, Props }
 import akka.pattern.ask
 import akka.util.Timeout
 import com.broilogabriel.Reaper.WatchMe
 import com.typesafe.scalalogging.LazyLogging
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.transport.TransportClient
-import org.joda.time.DateTime
-import org.joda.time.DateTimeConstants
+import org.elasticsearch.search.SearchHit
+import org.joda.time.{ DateTime, DateTimeConstants }
 import scopt.OptionParser
 
 import scala.annotation.tailrec
@@ -29,12 +26,15 @@ object Config {
 }
 
 case class Config(index: String = "", indices: Set[String] = Set.empty,
-  sourceAddress: String = "localhost", sourcePort: Int = Config.defaultSourcePort, sourceCluster: String = "",
-  targetAddress: String = "localhost", targetPort: Int = Config.defaultTargetPort, targetCluster: String = "",
-  remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort, remoteName: String = "RemoteServer") {
-  def source: ClusterConfig = ClusterConfig(name = sourceCluster, address = sourceAddress, port = sourcePort)
+    sourceAddresses: Seq[String] = Seq("localhost"),
+    sourcePort: Int = Config.defaultSourcePort, sourceCluster: String = "",
+    targetAddresses: Seq[String] = Seq("localhost"),
+    targetPort: Int = Config.defaultTargetPort, targetCluster: String = "",
+    remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
+    remoteName: String = "RemoteServer") {
+  def source: ClusterConfig = ClusterConfig(name = sourceCluster, addresses = sourceAddresses, port = sourcePort)
 
-  def target: ClusterConfig = ClusterConfig(name = targetCluster, address = targetAddress, port = targetPort)
+  def target: ClusterConfig = ClusterConfig(name = targetCluster, addresses = targetAddresses, port = targetPort)
 }
 
 object Client extends LazyLogging {
@@ -89,18 +89,18 @@ object Client extends LazyLogging {
     opt[(String, String)]('d', "dateRange").validate(
       d => if (indicesByRange(d._1, d._2, validate = true).isDefined) success else failure("Invalid dates")
     ).action({
-      case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
-    }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
+        case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
+      }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
 
-    opt[String]('s', "source").valueName("<source_address>")
-      .action((x, c) => c.copy(sourceAddress = x)).text("default value 'localhost'")
+    opt[Seq[String]]('s', "sources").valueName("<source_address1>,<source_address2>")
+      .action((x, c) => c.copy(sourceAddresses = x)).text("default value 'localhost'")
     opt[Int]('p', "sourcePort").valueName("<source_port>")
       .action((x, c) => c.copy(sourcePort = x)).text("default value 9300")
     opt[String]('c', "sourceCluster").required().valueName("<source_cluster>")
       .action((x, c) => c.copy(sourceCluster = x))
 
-    opt[String]('t', "target").valueName("<target_address>")
-      .action((x, c) => c.copy(targetAddress = x)).text("default value 'localhost'")
+    opt[Seq[String]]('t', "targets").valueName("<target_address1>,<target_address2>...")
+      .action((x, c) => c.copy(targetAddresses = x)).text("default value 'localhost'")
     opt[Int]('r', "targetPort").valueName("<target_port>")
       .action((x, c) => c.copy(targetPort = x)).text("default value 9301")
     opt[String]('u', "targetCluster").required().valueName("<target_cluster>")
@@ -134,12 +134,14 @@ object Client extends LazyLogging {
   }
 
   def init(config: Config): Unit = {
+    logger.info(s"$config")
     val actorSystem = ActorSystem.create("MigrationClient")
     val reaper = actorSystem.actorOf(Props(classOf[ProductionReaper]))
     logger.info(s"Creating actors for indices ${config.indices}")
     config.indices.foreach(index => {
+      val actorPath = ActorPath.fromString(s"akka.tcp://MigrationServer@${config.remoteAddress}:${config.remotePort}/user/${config.remoteName}")
       val actorRef = actorSystem.actorOf(
-        Props(classOf[Client], config.copy(index = index, indices = Set.empty)),
+        Props(classOf[Client], config.copy(index = index, indices = Set.empty), actorPath),
         s"RemoteClient-$index"
       )
       reaper ! WatchMe(actorRef)
@@ -148,7 +150,7 @@ object Client extends LazyLogging {
 
 }
 
-class Client(config: Config) extends Actor with LazyLogging {
+class Client(config: Config, path: ActorPath) extends Actor with LazyLogging {
 
   var scroll: SearchResponse = _
   var cluster: TransportClient = _
@@ -160,8 +162,8 @@ class Client(config: Config) extends Actor with LazyLogging {
   override def preStart(): Unit = {
     cluster = Cluster.getCluster(config.source)
     scroll = Cluster.getScrollId(cluster, config.index)
+    logger.info(s"Getting scroll for index ${config.index} took ${scroll.getTookInMillis}ms")
     if (Cluster.checkIndex(cluster, config.index)) {
-      val path = s"akka.tcp://MigrationServer@${config.remoteAddress}:${config.remotePort}/user/${config.remoteName}"
       val remote = context.actorSelection(path)
       // TODO: add handshake before start sending data, the server might not be alive and the application is not killed
       remote ! config.target.copy(totalHits = scroll.getHits.getTotalHits)
@@ -179,45 +181,48 @@ class Client(config: Config) extends Actor with LazyLogging {
 
   override def receive: Actor.Receive = {
     case MORE =>
-      logger.info(s"${sender.path.name} - requesting more")
+      logger.info(s"${sender.path.name} ${config.index} - requesting more")
       val hits = Cluster.scroller(config.index, scroll.getScrollId, cluster)
-      if (hits.nonEmpty) {
-        hits.foreach(hit => {
-          val data = TransferObject(uuid, config.index, hit.getType, hit.getId, hit.getSourceAsString)
-          try {
-            val serverResponse = Await.result(sender ? data, timeout.duration)
-            if (data.hitId != serverResponse) {
-              logger.info(s"${sender.path.name} - Expected response: ${
-                data
-                  .hitId
-              }, but server responded with: $serverResponse")
-            }
-          } catch {
-            case _@(_: TimeoutException | _: InterruptedException) =>
-              logger.warn(s"${sender.path.name} - Exception  awaiting for $data")
-            case e: Exception => logger.error(s"Unexpected Exception: ${e.getMessage}")
-          }
-        })
-        val totalSent = total.addAndGet(hits.length)
-        logger.info(s"${sender.path.name} - ${config.index} - ${
-          (totalSent * 100) / scroll.getHits
-            .getTotalHits
-        }% | Sent $totalSent of ${scroll.getHits.getTotalHits}")
-      } else {
-        logger.info(s"${sender.path.name} - ${config.index} - Sending DONE")
-        sender ! DONE
-      }
+      sendHits(hits)
 
     case uuidInc: UUID =>
       uuid = uuidInc
       val scrollId = scroll.getScrollId.substring(0, 10)
-      logger.info(
+      logger.debug(
         s"${sender.path.name} - ${config.index} - Scroll $scrollId - ${scroll.getHits.getTotalHits}"
       )
-      self.forward(MORE)
+      val hits = scroll.getHits.getHits
+      sendHits(hits)
 
     case other =>
       logger.info(s"${sender.path.name} - ${config.index} - Unknown message: $other")
   }
 
+  def sendHits(hits: Array[SearchHit]): Unit = {
+    if (hits.nonEmpty) {
+      hits.foreach(hit => {
+        val data = TransferObject(uuid, config.index, hit.getType, hit.getId, hit.getSourceAsString)
+        try {
+          val serverResponse = Await.result(sender ? data, timeout.duration)
+          if (data.hitId != serverResponse) {
+            logger.info(s"${sender.path.name} - Expected response: ${
+              data
+                .hitId
+            }, but server responded with: $serverResponse")
+          }
+        } catch {
+          case _@(_: TimeoutException | _: InterruptedException) =>
+            logger.warn(s"${sender.path.name} - Exception  awaiting for $data")
+          case e: Exception => logger.error(s"Unexpected Exception: ${e.getMessage}")
+        }
+      })
+      val totalSent = total.addAndGet(hits.length)
+      logger.info(s"${sender.path.name} - ${config.index} - ${
+        (totalSent * 100) / scroll.getHits
+          .getTotalHits
+      }% | Sent $totalSent of ${scroll.getHits.getTotalHits}")
+    } else {
+      logger.info(s"${sender.path.name} - ${config.index} - All data sent, awaiting PoisonPill")
+    }
+  }
 }
