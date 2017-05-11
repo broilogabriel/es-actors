@@ -1,4 +1,5 @@
 import Settings._
+import org.scoverage.coveralls.Imports.CoverallsKeys._
 import sbt._
 
 lazy val root = project.root
@@ -48,5 +49,7 @@ lazy val server = project.from("server")
     libraryDependencies += "org.elasticsearch" % "elasticsearch" % "2.4.1"
   )
 
+coverallsToken := Some("IbJNNZ6lxeH9qiCC5O5at5W8eEE5B4LYL")
+gitRepoDir:= ".."
 
 

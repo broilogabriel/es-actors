@@ -9,7 +9,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{ BeforeAndAfter, BeforeAndAfterAll, WordSpecLike }
 
 class ClientTest extends TestKit(ActorSystem("MySpec")) with LazyLogging with ImplicitSender
-  with WordSpecLike with InMemoryES with BeforeAndAfterAll with BeforeAndAfter {
+    with WordSpecLike with InMemoryES with BeforeAndAfterAll with BeforeAndAfter {
 
   override def afterAll(): Unit = {
     node.close()

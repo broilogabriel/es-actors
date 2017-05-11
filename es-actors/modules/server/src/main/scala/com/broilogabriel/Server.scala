@@ -26,7 +26,7 @@ class Server extends Actor with LazyLogging {
       val uuid = UUID.randomUUID
       logger.info(s"Server received cluster config: $cluster")
       context.actorOf(
-        Props(classOf[BulkHandler], cluster),
+        Props(classOf[BulkHandler], cluster, sender),
         name = uuid.toString
       ).forward(uuid)
 
@@ -37,12 +37,11 @@ class Server extends Actor with LazyLogging {
 
 }
 
-class BulkHandler(cluster: ClusterConfig) extends Actor with LazyLogging {
+class BulkHandler(cluster: ClusterConfig, client: ActorRef) extends Actor with LazyLogging {
 
   var bListener: BulkListener = _
   var bulkProcessor: BulkProcessor = _
   var finishedActions: AtomicLong = _
-  var client: ActorRef = _
 
   override def preStart(): Unit = {
     bListener = BulkListener(Cluster.getCluster(cluster), self)
@@ -51,18 +50,17 @@ class BulkHandler(cluster: ClusterConfig) extends Actor with LazyLogging {
   }
 
   override def postStop(): Unit = {
-    client ! PoisonPill
     logger.info(s"${self.path.name} - Stopping BulkHandler")
     bulkProcessor.flush()
     bListener.client.close()
+    client ! PoisonPill
   }
 
   override def receive: Actor.Receive = {
 
     case uuid: UUID =>
       logger.info(s"${self.path.name} - Starting")
-      client = sender()
-      client ! uuid
+      sender ! uuid
 
     case to: TransferObject =>
       val indexRequest = new IndexRequest(to.index, to.hitType, to.hitId)

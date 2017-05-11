@@ -24,21 +24,9 @@ class ServerTest extends TestKit(ActorSystem("MySpec")) with LazyLogging with Im
   "Server" should {
     "connect to ES" in {
       val actorRef = TestActorRef[Server]
-      val clusterConfig = ClusterConfig("elasticsearch_embedded", Seq("localhost"), 9300, 0)
+      val clusterConfig = ClusterConfig("elasticsearch_embedded", Seq("localhost"), 9300, 1)
       actorRef ! clusterConfig
       expectMsgClass(classOf[UUID])
-    }
-    "should shutdown gracefully" in {
-      val actorRef = TestActorRef[Server]
-      val clusterConfig = ClusterConfig("elasticsearch_embedded", Seq("localhost"), 9300, 0)
-      actorRef ! clusterConfig
-      expectMsgClass(classOf[UUID])
-
-      val childActor = actorRef.children.toList.head
-      val deathProbe = TestProbe()
-      deathProbe.watch(childActor)
-      childActor ! DONE
-      deathProbe.expectTerminated(childActor)
     }
     "should persist messages" in {
       val numMesages = 2000
@@ -48,7 +36,8 @@ class ServerTest extends TestKit(ActorSystem("MySpec")) with LazyLogging with Im
       expectMsgClass(classOf[UUID])
 
       val childActor = actorRef.children.toList.head
-      watch(childActor)
+      val deathWatcher = TestProbe()
+      deathWatcher.watch(childActor)
 
       val sources = 1 to numMesages map { num: Int => generateJson(num) }
       sources.zipWithIndex.foreach {
@@ -58,14 +47,13 @@ class ServerTest extends TestKit(ActorSystem("MySpec")) with LazyLogging with Im
           if ((((i + 1) % ClusterConfig.bulkActions) == 0) && ((i + 1) != numMesages)) {
             expectMsg(uuid)
             expectMsg(MORE)
-          }
-          else {
+          } else {
             expectMsg(uuid)
           }
         }
       }
 
-      expectTerminated(childActor, (ClusterConfig.flushIntervalSec + 1) seconds)
+      deathWatcher.expectTerminated(childActor, (ClusterConfig.flushIntervalSec + 1) seconds)
     }
   }
 }
