@@ -18,7 +18,7 @@ trait InMemoryES {
       .put("transport.tcp.port", 9300)
       .put("path.data", Files.createTempDirectory("elasticsearch_data_").toFile.toString)
       .put("path.home", localDataDir).build()
-    NodeBuilder.nodeBuilder().data(true).settings(settings).node()
+    NodeBuilder.nodeBuilder().data(true).settings(settings).node().start()
   }
 
   def putSomeData(indexName: String, indexType: String, numItems: Int): BulkResponse = {

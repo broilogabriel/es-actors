@@ -181,7 +181,7 @@ class Client(config: Config, path: ActorPath) extends Actor with LazyLogging {
 
   override def receive: Actor.Receive = {
     case MORE =>
-      logger.info(s"${sender.path.name} - requesting more")
+      logger.info(s"${sender.path.name} ${config.index} - requesting more")
       val hits = Cluster.scroller(config.index, scroll.getScrollId, cluster)
       sendHits(hits)
 
@@ -222,8 +222,7 @@ class Client(config: Config, path: ActorPath) extends Actor with LazyLogging {
           .getTotalHits
       }% | Sent $totalSent of ${scroll.getHits.getTotalHits}")
     } else {
-      logger.info(s"${sender.path.name} - ${config.index} - Sending DONE")
-      sender ! DONE
+      logger.info(s"${sender.path.name} - ${config.index} - All data sent, awaiting PoisonPill")
     }
   }
 }

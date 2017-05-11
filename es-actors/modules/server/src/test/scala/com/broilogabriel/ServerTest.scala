@@ -3,9 +3,11 @@ package com.broilogabriel
 import java.util.UUID
 
 import akka.actor.ActorSystem
-import akka.testkit.{ ImplicitSender, TestActorRef, TestKit }
+import akka.testkit.{ ImplicitSender, TestActorRef, TestKit, TestProbe }
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{ BeforeAndAfter, BeforeAndAfterAll, WordSpecLike }
+
+import scala.concurrent.duration._
 
 class ServerTest extends TestKit(ActorSystem("MySpec")) with LazyLogging with ImplicitSender
   with WordSpecLike with InMemoryES with BeforeAndAfterAll with BeforeAndAfter {
@@ -22,40 +24,48 @@ class ServerTest extends TestKit(ActorSystem("MySpec")) with LazyLogging with Im
   "Server" should {
     "connect to ES" in {
       val actorRef = TestActorRef[Server]
-      val clusterConfig = ClusterConfig("elasticsearch_embedded", Seq("localhost"), 9300, 1000)
+      val clusterConfig = ClusterConfig("elasticsearch_embedded", Seq("localhost"), 9300, 0)
       actorRef ! clusterConfig
       expectMsgClass(classOf[UUID])
     }
     "should shutdown gracefully" in {
       val actorRef = TestActorRef[Server]
-      val clusterConfig = ClusterConfig("elasticsearch_embedded", Seq("localhost"), 9300, 1000)
+      val clusterConfig = ClusterConfig("elasticsearch_embedded", Seq("localhost"), 9300, 0)
       actorRef ! clusterConfig
       expectMsgClass(classOf[UUID])
-      val kids = actorRef.children.toList
-      kids.foreach {
-        actor => {
-          actor ! DONE
-        }
-      }
+
+      val childActor = actorRef.children.toList.head
+      val deathProbe = TestProbe()
+      deathProbe.watch(childActor)
+      childActor ! DONE
+      deathProbe.expectTerminated(childActor)
     }
     "should persist messages" in {
+      val numMesages = 2000
       val actorRef = TestActorRef[Server]
-      val clusterConfig = ClusterConfig("elasticsearch_embedded", Seq("localhost"), 9300, 1500)
+      val clusterConfig = ClusterConfig("elasticsearch_embedded", Seq("localhost"), 9300, numMesages)
       actorRef ! clusterConfig
       expectMsgClass(classOf[UUID])
-      val kids = actorRef.children.toList
-      val sources = 1 to 1500 map { num: Int => generateJson(num) }
-      kids.foreach {
-        actor => {
-          sources foreach {
-            source => {
-              val uuid = UUID.randomUUID().toString
-              actor ! TransferObject(UUID.randomUUID(), "index-1", "type", uuid, source)
-              expectMsg(uuid)
-            }
+
+      val childActor = actorRef.children.toList.head
+      watch(childActor)
+
+      val sources = 1 to numMesages map { num: Int => generateJson(num) }
+      sources.zipWithIndex.foreach {
+        case (source, i) => {
+          val uuid = UUID.randomUUID().toString
+          childActor ! TransferObject(UUID.randomUUID(), "index-1", "type", uuid, source)
+          if ((((i + 1) % ClusterConfig.bulkActions) == 0) && ((i + 1) != numMesages)) {
+            expectMsg(uuid)
+            expectMsg(MORE)
+          }
+          else {
+            expectMsg(uuid)
           }
         }
       }
+
+      expectTerminated(childActor, (ClusterConfig.flushIntervalSec + 1) seconds)
     }
   }
 }

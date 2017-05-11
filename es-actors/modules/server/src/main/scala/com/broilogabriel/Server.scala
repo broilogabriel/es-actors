@@ -39,12 +39,19 @@ class Server extends Actor with LazyLogging {
 
 class BulkHandler(cluster: ClusterConfig) extends Actor with LazyLogging {
 
-  val bListener = BulkListener(Cluster.getCluster(cluster), self)
-  val bulkProcessor: BulkProcessor = Cluster.getBulkProcessor(bListener).build()
-  val finishedActions: AtomicLong = new AtomicLong
+  var bListener: BulkListener = _
+  var bulkProcessor: BulkProcessor = _
+  var finishedActions: AtomicLong = _
   var client: ActorRef = _
 
+  override def preStart(): Unit = {
+    bListener = BulkListener(Cluster.getCluster(cluster), self)
+    bulkProcessor = Cluster.getBulkProcessor(bListener).build()
+    finishedActions = new AtomicLong
+  }
+
   override def postStop(): Unit = {
+    client ! PoisonPill
     logger.info(s"${self.path.name} - Stopping BulkHandler")
     bulkProcessor.flush()
     bListener.client.close()
@@ -55,18 +62,13 @@ class BulkHandler(cluster: ClusterConfig) extends Actor with LazyLogging {
     case uuid: UUID =>
       logger.info(s"${self.path.name} - Starting")
       client = sender()
-      sender ! uuid
+      client ! uuid
 
     case to: TransferObject =>
       val indexRequest = new IndexRequest(to.index, to.hitType, to.hitId)
       indexRequest.source(to.source)
       bulkProcessor.add(indexRequest)
       sender ! to.hitId
-
-    case DONE =>
-      logger.info(s"${self.path.name} - Received DONE, gonna send PoisonPill")
-      sender ! PoisonPill
-      context.stop(self)
 
     case finished: Int =>
       val actions = finishedActions.addAndGet(finished)
@@ -76,8 +78,7 @@ class BulkHandler(cluster: ClusterConfig) extends Actor with LazyLogging {
       if (actions < cluster.totalHits) {
         client ! MORE
       } else {
-        sender ! PoisonPill
-        context.stop(self)
+        self ! PoisonPill
       }
 
     case other =>
