@@ -51,5 +51,6 @@ lazy val server = project.from("server")
 
 coverallsToken := Some("IbJNNZ6lxeH9qiCC5O5at5W8eEE5B4LYL")
 gitRepoDir:= ".."
+concurrentRestrictions in Global += Tags.limit(Tags.Test, 1)
 
 
