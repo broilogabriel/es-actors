@@ -14,8 +14,4 @@ cache:
 
 script:
   - cd es-actors
-  - sbt clean coverage test
-after_success:
-  - sbt coverageReport
-  - sbt coverageAggregate
-  - sbt coveralls
+  - sbt test
