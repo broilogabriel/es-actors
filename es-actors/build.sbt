@@ -28,7 +28,7 @@ lazy val client = project.from("client")
     mainClass in(Compile, run) := Some("com.broilogabriel.Client"),
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
     buildInfoPackage := Settings.defaultOrg,
-    libraryDependencies += "org.elasticsearch" % "elasticsearch" % "1.7.5"
+    libraryDependencies += "org.elasticsearch" % "elasticsearch" % "2.4.1"
   )
 
 lazy val server = project.from("server")
@@ -48,5 +48,7 @@ lazy val server = project.from("server")
     libraryDependencies += "org.elasticsearch" % "elasticsearch" % "2.4.1"
   )
 
+concurrentRestrictions in Global += Tags.limit(Tags.Test, 1)
+parallelExecution in Test := false
 
 

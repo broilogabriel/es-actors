@@ -4,10 +4,11 @@ import java.util.UUID
 
 //@SerialVersionUID
 object ClusterConfig {
-  val scrollSize = 100000
+  //Beware of setting this variable any higher, causes memory issues in source cluster
+  val scrollSize = 1000
   val minutesAlive = 10
-  val bulkActions = 25000
-  val bulkSizeMb = 25
+  val bulkActions = 1000
+  val bulkSizeMb = 1
   val flushIntervalSec = 5
 }
 
@@ -18,6 +19,3 @@ case class TransferObject(uuid: UUID, index: String, hitType: String, hitId: Str
 
 //@SerialVersionUID(1L)
 object MORE extends Serializable
-
-//@SerialVersionUID(2L)
-object DONE extends Serializable

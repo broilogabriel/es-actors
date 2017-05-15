@@ -1,4 +1,5 @@
 # es-actors
+[![Coverage Status](https://coveralls.io/repos/github/NewsWhip/es-actors/badge.svg)](https://coveralls.io/github/NewsWhip/es-actors) [![Build Status](https://travis-ci.org/NewsWhip/es-actors.svg?branch=master)](https://travis-ci.org/NewsWhip/es-actors)
 
 ## es-server
 ```
