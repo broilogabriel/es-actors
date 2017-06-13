@@ -10,8 +10,7 @@ import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.SearchHit
-import org.elasticsearch.search.sort.SortOrder
-import org.elasticsearch.search.sort.SortParseElement
+import org.elasticsearch.search.sort.{ SortOrder, SortParseElement }
 
 object Cluster extends LazyLogging {
 
@@ -34,11 +33,11 @@ object Cluster extends LazyLogging {
       .execute().actionGet().isExists
   }
 
-  def getScrollId(cluster: TransportClient, index: String, size: Int = ClusterConfig.scrollSize): SearchResponse = {
+  def getScrollId(cluster: TransportClient, index: String, size: Int = ClusterConfig.scrollSize, query: Option[String] = None): SearchResponse = {
     cluster.prepareSearch(index)
       .addSort(SortParseElement.DOC_FIELD_NAME, SortOrder.ASC)
       .setScroll(TimeValue.timeValueMinutes(ClusterConfig.minutesAlive))
-      .setQuery(QueryBuilders.matchAllQuery)
+      .setQuery(query.getOrElse(QueryBuilders.matchAllQuery.toString))
       .setSize(size)
       .execute().actionGet()
   }

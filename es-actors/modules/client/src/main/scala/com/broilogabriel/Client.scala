@@ -31,7 +31,8 @@ case class Config(index: String = "", indices: Set[String] = Set.empty,
     targetAddresses: Seq[String] = Seq("localhost"),
     targetPort: Int = Config.defaultTargetPort, targetCluster: String = "",
     remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
-    remoteName: String = "RemoteServer") {
+    remoteName: String = "RemoteServer",
+    query: Option[String] = None) {
   def source: ClusterConfig = ClusterConfig(name = sourceCluster, addresses = sourceAddresses, port = sourcePort)
 
   def target: ClusterConfig = ClusterConfig(name = targetCluster, addresses = targetAddresses, port = targetPort)
@@ -109,6 +110,7 @@ object Client extends LazyLogging {
     opt[String]("remoteAddress").valueName("<remote_address>").action((x, c) => c.copy(remoteAddress = x))
     opt[Int]("remotePort").valueName("<remote_port>").action((x, c) => c.copy(remotePort = x))
     opt[String]("remoteName").valueName("<remote_name>").action((x, c) => c.copy(remoteName = x))
+    opt[String]("query").valueName("<es_query>").action((x, c) => c.copy(query = Some(x)))
 
     opt[Map[String, String]]("nightly").valueName("value name to define")
       .validate(p => {
@@ -161,7 +163,7 @@ class Client(config: Config, path: ActorPath) extends Actor with LazyLogging {
 
   override def preStart(): Unit = {
     cluster = Cluster.getCluster(config.source)
-    scroll = Cluster.getScrollId(cluster, config.index)
+    scroll = Cluster.getScrollId(cluster, config.index, query = config.query)
     logger.info(s"Getting scroll for index ${config.index} took ${scroll.getTookInMillis}ms")
     if (Cluster.checkIndex(cluster, config.index)) {
       val remote = context.actorSelection(path)
