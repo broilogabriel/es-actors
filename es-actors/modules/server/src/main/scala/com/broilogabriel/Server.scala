@@ -20,13 +20,13 @@ object Server extends App with LazyLogging {
 
 class Server extends Actor with LazyLogging {
 
-  def receive(): Object = {
+  override def receive: Actor.Receive = {
 
     case cluster: ClusterConfig =>
       val uuid = UUID.randomUUID
       logger.info(s"Server received cluster config: $cluster")
       context.actorOf(
-        Props(classOf[BulkHandler], cluster),
+        Props(classOf[BulkHandler], cluster, sender),
         name = uuid.toString
       ).forward(uuid)
 
@@ -37,25 +37,29 @@ class Server extends Actor with LazyLogging {
 
 }
 
-class BulkHandler(cluster: ClusterConfig) extends Actor with LazyLogging {
+class BulkHandler(cluster: ClusterConfig, client: ActorRef) extends Actor with LazyLogging {
 
-  val bListener = BulkListener(Cluster.getCluster(cluster), self)
-  val bulkProcessor: BulkProcessor = Cluster.getBulkProcessor(bListener).build()
-  val finishedActions: AtomicLong = new AtomicLong
+  var bListener: BulkListener = _
+  var bulkProcessor: BulkProcessor = _
+  var finishedActions: AtomicLong = _
+
+  override def preStart(): Unit = {
+    bListener = BulkListener(Cluster.getCluster(cluster), self)
+    bulkProcessor = Cluster.getBulkProcessor(bListener).build()
+    finishedActions = new AtomicLong
+  }
 
   override def postStop(): Unit = {
     logger.info(s"${self.path.name} - Stopping BulkHandler")
     bulkProcessor.flush()
     bListener.client.close()
+    client ! PoisonPill
   }
-
-  var client: ActorRef = _
 
   override def receive: Actor.Receive = {
 
     case uuid: UUID =>
       logger.info(s"${self.path.name} - Starting")
-      client = sender()
       sender ! uuid
 
     case to: TransferObject =>
@@ -63,10 +67,6 @@ class BulkHandler(cluster: ClusterConfig) extends Actor with LazyLogging {
       indexRequest.source(to.source)
       bulkProcessor.add(indexRequest)
       sender ! to.hitId
-
-    case DONE =>
-      logger.info(s"${self.path.name} - Received DONE, gonna send PoisonPill")
-      sender ! PoisonPill
 
     case finished: Int =>
       val actions = finishedActions.addAndGet(finished)
