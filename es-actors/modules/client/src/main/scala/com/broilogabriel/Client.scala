@@ -26,13 +26,14 @@ object Config {
 }
 
 case class Config(index: String = "", indices: Set[String] = Set.empty,
-    sourceAddresses: Seq[String] = Seq("localhost"),
-    sourcePort: Int = Config.defaultSourcePort, sourceCluster: String = "",
-    targetAddresses: Seq[String] = Seq("localhost"),
-    targetPort: Int = Config.defaultTargetPort, targetCluster: String = "",
-    remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
-    remoteName: String = "RemoteServer",
-    query: Option[String] = None) {
+  sourceAddresses: Seq[String] = Seq("localhost"),
+  sourcePort: Int = Config.defaultSourcePort, sourceCluster: String = "",
+  targetAddresses: Seq[String] = Seq("localhost"),
+  targetPort: Int = Config.defaultTargetPort, targetCluster: String = "",
+  remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
+  remoteName: String = "RemoteServer",
+  query: Option[String] = None,
+  targetIndexPrefix: Option[String] = None) {
   def source: ClusterConfig = ClusterConfig(name = sourceCluster, addresses = sourceAddresses, port = sourcePort)
 
   def target: ClusterConfig = ClusterConfig(name = targetCluster, addresses = targetAddresses, port = targetPort)
@@ -90,8 +91,8 @@ object Client extends LazyLogging {
     opt[(String, String)]('d', "dateRange").validate(
       d => if (indicesByRange(d._1, d._2, validate = true).isDefined) success else failure("Invalid dates")
     ).action({
-        case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
-      }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
+      case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
+    }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
 
     opt[Seq[String]]('s', "sources").valueName("<source_address1>,<source_address2>")
       .action((x, c) => c.copy(sourceAddresses = x)).text("default value 'localhost'")
@@ -111,6 +112,7 @@ object Client extends LazyLogging {
     opt[Int]("remotePort").valueName("<remote_port>").action((x, c) => c.copy(remotePort = x))
     opt[String]("remoteName").valueName("<remote_name>").action((x, c) => c.copy(remoteName = x))
     opt[String]("query").valueName("<es_query>").action((x, c) => c.copy(query = Some(x)))
+    opt[String]("targetIndexPrefix").valueName("<target_index_prefix>").action((x, c) => c.copy(targetIndexPrefix = Some(x)))
 
     opt[Map[String, String]]("nightly").valueName("value name to define")
       .validate(p => {
@@ -203,7 +205,8 @@ class Client(config: Config, path: ActorPath) extends Actor with LazyLogging {
   def sendHits(hits: Array[SearchHit]): Unit = {
     if (hits.nonEmpty) {
       hits.foreach(hit => {
-        val data = TransferObject(uuid, config.index, hit.getType, hit.getId, hit.getSourceAsString)
+        val index = config.index.replace("a-", config.targetIndexPrefix.getOrElse("a-"))
+        val data = TransferObject(uuid, index, hit.getType, hit.getId, hit.getSourceAsString)
         try {
           val serverResponse = Await.result(sender ? data, timeout.duration)
           if (data.hitId != serverResponse) {
