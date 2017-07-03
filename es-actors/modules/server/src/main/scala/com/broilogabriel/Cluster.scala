@@ -15,12 +15,18 @@ import org.elasticsearch.common.unit.ByteSizeUnit
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 
-object Cluster {
+object Cluster extends LazyLogging {
 
   def getCluster(cluster: ClusterConfig): TransportClient = {
-    val settings = Settings.settingsBuilder().put("cluster.name", cluster.name).build()
-    TransportClient.builder().settings(settings).build()
-      .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(cluster.address), cluster.port))
+    val settings = Settings.settingsBuilder().put("cluster.name", cluster.name)
+      .put("client.transport.sniff", true).put("client.transport.ping_timeout", "60s").build()
+    val transportClient = TransportClient.builder().settings(settings).build()
+    cluster.addresses foreach {
+      (address: String) =>
+        logger.info(s"Server connecting to $address")
+        transportClient.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(address), cluster.port))
+    }
+    transportClient
   }
 
   def getBulkProcessor(listener: BulkListener): Builder = {
@@ -33,19 +39,19 @@ object Cluster {
 }
 
 case class BulkListener(
-  transportClient: TransportClient, handler: ActorRef
+    transportClient: TransportClient, handler: ActorRef
 ) extends BulkProcessor.Listener with LazyLogging {
 
   def client: TransportClient = transportClient
 
   override def beforeBulk(executionId: Long, request: BulkRequest): Unit = {
-    logger.info(s"${handler.path.name} Before: $executionId | Size: " +
+    logger.debug(s"${handler.path.name} Before: $executionId | Size: " +
       s"${new ByteSizeValue(request.estimatedSizeInBytes()).getMb} " +
       s"| actions - ${request.numberOfActions()}")
   }
 
   override def afterBulk(executionId: Long, request: BulkRequest, response: BulkResponse): Unit = {
-    logger.info(s"${handler.path.name} After: $executionId | Size: " +
+    logger.debug(s"${handler.path.name} After: $executionId | Size: " +
       s"${new ByteSizeValue(request.estimatedSizeInBytes()).getMb} " +
       s"| took - ${response.getTook}")
     handler ! request.numberOfActions()
